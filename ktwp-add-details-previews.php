@@ -25,7 +25,7 @@ $avoid_selectors='.fromblog,.bluetext';
 // Register settings
     add_action('admin_init', function() {
         register_setting('ktwp_details_excerpt', 'ktwp_details_excerpt_selectors');
-      
+        register_setting('ktwp_details_excerpt', 'ktwp_details_excerpt_avoid'); /* This was missing. I added it because it seems like this must be present to save values. Remove again and troubleshoot if it causes problems */
     });
     
 
