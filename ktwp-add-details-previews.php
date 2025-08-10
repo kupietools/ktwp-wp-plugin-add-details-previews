@@ -136,6 +136,7 @@ global $avoid;
                     allText.substring(0, 250) + '...' : 
                     allText);
                  details.querySelector('summary').appendChild(preview);
+				details.querySelector('summary').classList.add('ktwp-details-preview-added');
             }
         });
     </script>
