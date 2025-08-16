@@ -104,7 +104,7 @@ $avoid = get_option('ktwp_details_excerpt_avoid',$avoid_selectors);
 function addStyles() {
 ?>
 <style id="ktwp-details-excerpt-style">
-details:not([open]) > summary > .detailspreview { display: block;overflow-x: clip;font-size: .8em;line-height: 1.2em;text-overflow: ellipsis;white-space: nowrap; }
+details:not([open]) > summary > .detailspreview { display: block;overflow-x: clip;font-size: .8em;line-height: 1.2em;text-overflow: ellipsis; /* white-space: nowrap; */ /* note: nowrap removed and next 3 added because was causing lines that didn't break to be wider than the screen */ word-break: normal;overflow-wrap: break-word;hyphens: manual;}
 details[open] > summary > .detailspreview {display: none;}
 </style>
 <?php
