@@ -83,8 +83,8 @@ global $avoid;
                 const preview = document.createElement('span');
                 preview.className = 'detailspreview';
                 // Limit to 250 characters and add ellipsis
-                preview.textContent = (allText.length > 250 ? 
-                    allText.substring(0, 247) + '...' : 
+                preview.textContent = (allText.length > 150 ? 
+                    allText.substring(0, 147) + '...' : 
                     allText);
                  details.querySelector('summary').appendChild(preview);
 				details.querySelector('summary').classList.add('ktwp-details-preview-added-summary');
