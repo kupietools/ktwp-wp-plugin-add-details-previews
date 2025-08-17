@@ -110,88 +110,98 @@ details[open] > summary > .detailspreview {display: none;}
 <?php
 }
   add_action('wp_footer', 'addStyles'); 
+
 function addDetailsPreview() {
 global $selectors;
 global $avoid;
     ?>   <script id="ktwp-details-excerpt">
-        document.querySelectorAll('<?php echo $selectors; ?>').forEach(details => {
-            // Get the summary element
-            const summary = details.querySelectorAll('summary<?php echo ($avoid==''?'':(','.$avoid)); ?>');
+        function extractTextContent(details) {
+            const detailsClone = details.cloneNode(true);
+            const summaryClone = detailsClone.querySelector('summary');
+            if (summaryClone) summaryClone.remove();
+            
+            // Remove scripts and styles
+            detailsClone.querySelectorAll('script, style<?php echo ($avoid ? ', ' . $avoid : ''); ?>').forEach(el => el.remove());
+            
+            return (detailsClone.textContent || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function generatePreviewForDetails(details) {
+            const summary = details.querySelector('summary');
             if (!summary) return;
 
-            // Get all text content, excluding the summary
-            let allText = Array.from(details.childNodes)
-               // .filter(node => node !== summary) // Exclude summary
-                 .filter(node => !Array.from(summary).includes(node))
-    .filter(node => node.nodeType !== Node.COMMENT_NODE) // Filter out comment nodes
-    .map(node => node.textContent || '')
-    .join(' ')
-    .trim();
-            // If there's text content, create and append the preview
+            // Remove existing preview
+            const existingPreview = summary.querySelector('.detailspreview');
+            if (existingPreview) {
+                existingPreview.remove();
+            }
+
+            const allText = extractTextContent(details);
+
             if (allText) {
                 const preview = document.createElement('span');
                 preview.className = 'detailspreview';
-                // Limit to 250 characters and add ellipsis
                 preview.textContent = (allText.length > 250 ? 
                     allText.substring(0, 247) + '...' : 
                     allText);
-                 details.querySelector('summary').appendChild(preview);
-				details.querySelector('summary').classList.add('ktwp-details-preview-added-summary');
-				details.classList.add('ktwp-details-preview-added');
+                summary.appendChild(preview);
             }
+
+            // Store current text content for comparison
+            details.dataset.lastTextContent = allText;
+        }
+
+        function setupDetailsObserver(details) {
+            if (details.dataset.observerAttached) return;
+            
+            generatePreviewForDetails(details);
+            
+            let timeoutId = null;
+            const observer = new MutationObserver(() => {
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    // Check if text content actually changed
+                    const currentText = extractTextContent(details);
+                    const lastText = details.dataset.lastTextContent || '';
+                    
+                    if (currentText !== lastText) {
+                        generatePreviewForDetails(details);
+                    }
+                }, 100); // Debounce to run at most once per 100ms
+            });
+
+            observer.observe(details, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+
+            details.dataset.observerAttached = 'true';
+        }
+
+        // Setup observers for existing details elements
+        document.querySelectorAll('<?php echo $selectors; ?>').forEach(setupDetailsObserver);
+
+        // Watch for new details elements
+        const pageObserver = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.matches && node.matches('<?php echo $selectors; ?>')) {
+                            setupDetailsObserver(node);
+                        }
+                        node.querySelectorAll && node.querySelectorAll('<?php echo $selectors; ?>').forEach(setupDetailsObserver);
+                    }
+                });
+            });
+        });
+
+        pageObserver.observe(document.body, {
+            childList: true,
+            subtree: true
         });
     </script>
 <?php 
-  
 }
 
-function xaddDetailsPreview() { /* this one only used <p> text in summary. add previews to <details> elements. */
-global $selectors;
-	?>   <script>
-		document.querySelectorAll('<?php echo $selectors; ?>').forEach(details => {
-    const paragraphs = details.querySelectorAll('p');
-    if (paragraphs.length === 0) return;
-
-    let combinedText = '';
-    let i = 0;
-
-    while (i < paragraphs.length && combinedText.length < 50) {
-        combinedText += (combinedText ? ' ' : '') + (paragraphs[i].textContent || '');
-        i++;
-    }
-
-    if (combinedText.trim()) {
-        const preview = document.createElement('span');
-        preview.className = 'detailspreview';
-        preview.textContent = combinedText.substring(0,250) + '...';
-        details.querySelector('summary').appendChild(preview);
-    }
-});
-
-		</script>
-<?php 
-	 /* just for interest: this would grap all the text, not just the first paragraph. <script>
-    console.log('Script running');
-    const details = document.querySelectorAll('.entry-content > details');
-    console.log('Found details elements:', details.length);
-    
-    details.forEach(details => {
-        console.log('Processing details:', details);
-        const summary = details.querySelector('summary');
-        console.log('Summary:', summary);
-        const summaryText = summary.textContent;
-        console.log('Summary text:', summaryText);
-        const fullText = details.textContent.replace(summaryText, '').trim();
-        console.log('Full text:', fullText);
-        
-        if (fullText) {
-            const preview = document.createElement('span');
-            preview.className = 'detailspreview';
-            preview.textContent = fullText;
-            summary.appendChild(preview);
-        }
-    });
-    </script> */
-	
-}
 add_action('wp_footer', 'addDetailsPreview');
