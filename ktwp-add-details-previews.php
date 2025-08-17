@@ -125,7 +125,7 @@ global $avoid;
             // Remove scripts and styles
             detailsClone.querySelectorAll('script, style<?php echo ($avoid ? ', ' . $avoid : ''); ?>').forEach(el => el.remove());
             
-            return (detailsClone.textContent || '').replace(/\s+/g, ' ').trim();
+            return (detailsClone.textContent || detailsClone.innerText || '').replace(/\s+/g, ' ').trim();
         }
 
         function generatePreviewForDetails(details) {
@@ -141,12 +141,16 @@ global $avoid;
             const allText = extractTextContent(details);
 
             if (allText) {
-                const preview = document.createElement('span');
+                const preview = document.createElement('div');
                 preview.className = 'detailspreview';
                 preview.textContent = (allText.length > 250 ? 
                     allText.substring(0, 247) + '...' : 
                     allText);
                 summary.appendChild(preview);
+                
+                // Add CSS classes
+                details.classList.add('ktwp-details-preview-added');
+                summary.classList.add('ktwp-details-preview-added-summary');
             }
 
             // Store current text content for comparison
@@ -205,6 +209,8 @@ global $avoid;
     </script>
 <?php 
 }
+
+
 
 
 add_action('wp_footer', 'addDetailsPreview');

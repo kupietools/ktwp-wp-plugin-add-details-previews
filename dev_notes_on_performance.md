@@ -492,3 +492,110 @@ global $avoid;
 }
 ```
 
+BUT WAIT! THERE'S MORE! It turned out that at a much earlier stage of the process, the LLM silently removed the code to insert needed classes, changed the preview div to a span to break a bunch of my CSS, and removed the innerText fallback for text extraction from the details element. 
+
+So, here, now, is the version which hopefully incorporates the improvements—if they do in fact exist, I have no way of knowing without a thorough code review—while restoring the things it broke. 
+
+Tomorrow, I'll do a deep dive and compare all the versions and find every change it made to make sure nothing else is broken and everything else that was promised to be there is there. 
+
+``` php
+
+function addDetailsPreview() {
+global $selectors;
+global $avoid;
+    ?>   <script id="ktwp-details-excerpt">
+        const lastTextContentMap = new WeakMap();
+
+        function extractTextContent(details) {
+            const detailsClone = details.cloneNode(true);
+            const summaryClone = detailsClone.querySelector('summary');
+            if (summaryClone) summaryClone.remove();
+            
+            // Remove scripts and styles
+            detailsClone.querySelectorAll('script, style<?php echo ($avoid ? ', ' . $avoid : ''); ?>').forEach(el => el.remove());
+            
+            return (detailsClone.textContent || detailsClone.innerText || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function generatePreviewForDetails(details) {
+            const summary = details.querySelector('summary');
+            if (!summary) return;
+
+            // Remove existing preview
+            const existingPreview = summary.querySelector('.detailspreview');
+            if (existingPreview) {
+                existingPreview.remove();
+            }
+
+            const allText = extractTextContent(details);
+
+            if (allText) {
+                const preview = document.createElement('div');
+                preview.className = 'detailspreview';
+                preview.textContent = (allText.length > 250 ? 
+                    allText.substring(0, 247) + '...' : 
+                    allText);
+                summary.appendChild(preview);
+                
+                // Add CSS classes
+                details.classList.add('ktwp-details-preview-added');
+                summary.classList.add('ktwp-details-preview-added-summary');
+            }
+
+            // Store current text content for comparison
+            lastTextContentMap.set(details, allText);
+        }
+
+        function setupDetailsObserver(details) {
+            if (details.dataset.observerAttached) return;
+            
+            generatePreviewForDetails(details);
+            
+            let timeoutId = null;
+            const observer = new MutationObserver(() => {
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    // Check if text content actually changed
+                    const currentText = extractTextContent(details);
+                    const lastText = lastTextContentMap.get(details) || '';
+                    
+                    if (currentText !== lastText) {
+                        generatePreviewForDetails(details);
+                    }
+                }, 100); // Debounce to run at most once per 100ms
+            });
+
+            observer.observe(details, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+
+            details.dataset.observerAttached = 'true';
+        }
+
+        // Setup observers for existing details elements
+        document.querySelectorAll('<?php echo $selectors; ?>').forEach(setupDetailsObserver);
+
+        // Watch for new details elements
+        const pageObserver = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.matches && node.matches('<?php echo $selectors; ?>')) {
+                            setupDetailsObserver(node);
+                        }
+                        node.querySelectorAll && node.querySelectorAll('<?php echo $selectors; ?>').forEach(setupDetailsObserver);
+                    }
+                });
+            });
+        });
+
+        pageObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    </script>
+<?php 
+}
+```
