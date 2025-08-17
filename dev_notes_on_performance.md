@@ -4,7 +4,7 @@ Note, 2025aug17: As a further optimization, an intersection observer could be ad
 
 * * * * * 
 
-This is an original version of addDetailsPreview(), which only included <p> content in the previews:
+This is an original version of addDetailsPreview(), which only included `<p>` tag content in the previews:
 
 ``` php 
 function PonlyAddDetailsPreview() { /* this one only used <p> text in summary. add previews to <details> elements. */
@@ -392,3 +392,103 @@ global $avoid;
 <?php 
 }
 ```
+
+Finally, one last optimization, and here is the current state of the function as of 2025aug17: let's not store the *entire* text of every details element in a data field. (Yes, ok, there was some help from an AI in these final optimizations; this sort of thing is the reason you have to scrutinize even working code from an LLM.)
+
+``` php
+function addDetailsPreview() {
+global $selectors;
+global $avoid;
+    ?>   <script id="ktwp-details-excerpt">
+        const lastTextContentMap = new WeakMap();
+
+        function extractTextContent(details) {
+            const detailsClone = details.cloneNode(true);
+            const summaryClone = detailsClone.querySelector('summary');
+            if (summaryClone) summaryClone.remove();
+            
+            // Remove scripts and styles
+            detailsClone.querySelectorAll('script, style<?php echo ($avoid ? ', ' . $avoid : ''); ?>').forEach(el => el.remove());
+            
+            return (detailsClone.textContent || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function generatePreviewForDetails(details) {
+            const summary = details.querySelector('summary');
+            if (!summary) return;
+
+            // Remove existing preview
+            const existingPreview = summary.querySelector('.detailspreview');
+            if (existingPreview) {
+                existingPreview.remove();
+            }
+
+            const allText = extractTextContent(details);
+
+            if (allText) {
+                const preview = document.createElement('span');
+                preview.className = 'detailspreview';
+                preview.textContent = (allText.length > 250 ? 
+                    allText.substring(0, 247) + '...' : 
+                    allText);
+                summary.appendChild(preview);
+            }
+
+            // Store current text content for comparison
+            lastTextContentMap.set(details, allText);
+        }
+
+        function setupDetailsObserver(details) {
+            if (details.dataset.observerAttached) return;
+            
+            generatePreviewForDetails(details);
+            
+            let timeoutId = null;
+            const observer = new MutationObserver(() => {
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    // Check if text content actually changed
+                    const currentText = extractTextContent(details);
+                    const lastText = lastTextContentMap.get(details) || '';
+                    
+                    if (currentText !== lastText) {
+                        generatePreviewForDetails(details);
+                    }
+                }, 100); // Debounce to run at most once per 100ms
+            });
+
+            observer.observe(details, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+
+            details.dataset.observerAttached = 'true';
+        }
+
+        // Setup observers for existing details elements
+        document.querySelectorAll('<?php echo $selectors; ?>').forEach(setupDetailsObserver);
+
+        // Watch for new details elements
+        const pageObserver = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.matches && node.matches('<?php echo $selectors; ?>')) {
+                            setupDetailsObserver(node);
+                        }
+                        node.querySelectorAll && node.querySelectorAll('<?php echo $selectors; ?>').forEach(setupDetailsObserver);
+                    }
+                });
+            });
+        });
+
+        pageObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    </script>
+<?php 
+}
+```
+

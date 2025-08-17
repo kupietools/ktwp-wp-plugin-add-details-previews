@@ -115,6 +115,8 @@ function addDetailsPreview() {
 global $selectors;
 global $avoid;
     ?>   <script id="ktwp-details-excerpt">
+        const lastTextContentMap = new WeakMap();
+
         function extractTextContent(details) {
             const detailsClone = details.cloneNode(true);
             const summaryClone = detailsClone.querySelector('summary');
@@ -148,7 +150,7 @@ global $avoid;
             }
 
             // Store current text content for comparison
-            details.dataset.lastTextContent = allText;
+            lastTextContentMap.set(details, allText);
         }
 
         function setupDetailsObserver(details) {
@@ -162,7 +164,7 @@ global $avoid;
                 timeoutId = setTimeout(() => {
                     // Check if text content actually changed
                     const currentText = extractTextContent(details);
-                    const lastText = details.dataset.lastTextContent || '';
+                    const lastText = lastTextContentMap.get(details) || '';
                     
                     if (currentText !== lastText) {
                         generatePreviewForDetails(details);
@@ -203,5 +205,6 @@ global $avoid;
     </script>
 <?php 
 }
+
 
 add_action('wp_footer', 'addDetailsPreview');
