@@ -123,17 +123,17 @@ global $avoid;
             let allText = Array.from(details.childNodes)
                // .filter(node => node !== summary) // Exclude summary
                  .filter(node => !Array.from(summary).includes(node))
-            .map(node => node.textContent || '')
-                .join(' ')
-                .trim();
-
+    .filter(node => node.nodeType !== Node.COMMENT_NODE) // Filter out comment nodes
+    .map(node => node.textContent || '')
+    .join(' ')
+    .trim();
             // If there's text content, create and append the preview
             if (allText) {
                 const preview = document.createElement('span');
                 preview.className = 'detailspreview';
                 // Limit to 250 characters and add ellipsis
                 preview.textContent = (allText.length > 250 ? 
-                    allText.substring(0, 250) + '...' : 
+                    allText.substring(0, 247) + '...' : 
                     allText);
                  details.querySelector('summary').appendChild(preview);
 				details.querySelector('summary').classList.add('ktwp-details-preview-added-summary');
